@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>Wormhole Engine 3D</title>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+  }
+
+  canvas { display: block; }
+
+  header {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    text-align: center;
+  }
+
+  input {
+    width: 300px;
+    padding: 10px;
+    border-radius: 20px;
+    border: none;
+    outline: none;
+  }
+
+  button {
+    padding: 10px 20px;
+    border-radius: 20px;
+    border: none;
+    background: #4f46e5;
+    color: white;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <input id="query" placeholder="Cerca...">
+  <button onclick="doSearch()">Cerca</button>
+</header>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<script>
+// SCENA (creata una sola volta)
+let scene = new THREE.Scene();
+
+// SFONDO THREE.JS (caricato una sola volta)
+const loader = new THREE.TextureLoader();
+loader.load('sfondo.jpg', function(texture) {
+  scene.background = texture;
+});
+
+// CAMERA
+let camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 1, 50000);
+camera.position.z = 2000;
+
+// RENDERER
+let renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+// LUCE
+let light = new THREE.PointLight(0xffffff, 2);
+light.position.set(0, 0, 2000);
+scene.add(light);
+
+// DATI PAGINE
+let pages = [];
+for (let i = 1; i <= 200; i++) {
+  pages.push({
+    title: "Pagina Auto #" + i,
+    snippet: "Contenuto informativo #" + i
+  });
+}
+
+// GEOMETRIA PAGINA
+const planeGeo = new THREE.PlaneGeometry(300, 200);
+
+// PARAMETRI WORMHOLE
+const radius = 3000;
+const pagesPerRing = 20;
+const spacing = 800;
+
+// FUNZIONE PER COSTRUIRE IL WORMHOLE
+function buildTunnel(data) {
+
+  // 🔥 Cancella SOLO le pagine, NON la scena
+  scene.children = scene.children.filter(obj => obj.type !== "Mesh");
+
+  // Rimetti la luce
+  scene.add(light);
+
+  data.forEach((p, i) => {
+    const ringIndex = Math.floor(i / pagesPerRing);
+    const posInRing = i % pagesPerRing;
+
+    const angle = posInRing * (Math.PI * 2 / pagesPerRing);
+
+    const x = Math.cos(angle) * radius;
+    const y = Math.sin(angle) * radius;
+    const z = -ringIndex * spacing;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 512;
+    canvas.height = 256;
+    const ctx = canvas.getContext("2d");
+
+    ctx.fillStyle = "rgba(20,20,40,0.95)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = "#93c5fd";
+    ctx.font = "40px Arial";
+    ctx.fillText(p.title, 20, 60);
+
+    ctx.fillStyle = "#cbd5e1";
+    ctx.font = "28px Arial";
+    ctx.fillText(p.snippet, 20, 140);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    const material = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
+
+    const mesh = new THREE.Mesh(planeGeo, material);
+
+    mesh.position.set(x, y, z);
+
+    mesh.lookAt(camera.position);
+
+    mesh.rotation.z += Math.cos(angle) * 0.4;
+    mesh.rotation.x += Math.sin(angle) * 0.4;
+
+    scene.add(mesh);
+  });
+}
+
+// FUNZIONE DI RICERCA
+function doSearch() {
+  const q = document.getElementById("query").value.toLowerCase();
+
+  const results = pages.filter(p =>
+    p.title.toLowerCase().includes(q) ||
+    p.snippet.toLowerCase().includes(q)
+  );
+
+  buildTunnel(results);
+}
+
+// MOVIMENTO CAMERA
+document.addEventListener("wheel", e => {
+  camera.position.z += e.deltaY * 2;
+});
+
+// LOOP
+function animate() {
+  requestAnimationFrame(animate);
+  renderer.render(scene, camera);
+}
+animate();
+
+// COSTRUZIONE INIZIALE
+buildTunnel(pages);
+
+</script>
+
+</body>
+</html>
